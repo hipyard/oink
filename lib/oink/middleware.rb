@@ -9,6 +9,7 @@ module Oink
       @app         = app
       @logger      = options[:logger] || Hodel3000CompliantLogger.new("log/oink.log")
       @instruments = options[:instruments] ? Array(options[:instruments]) : [:memory, :activerecord]
+      @memory_threshold = options[:memory_threshold]
 
       Oink.extend_active_record! if @instruments.include?(:activerecord)
     end
@@ -32,7 +33,9 @@ module Oink
       if routing_info
         controller = routing_info['controller']
         action     = routing_info['action']
+        user_id    = env["warden"].try(:user).try(:id)
         @logger.info("Oink Action: #{controller}##{action}")
+        @logger.info("User ID: #{user_id}") if user_id
       end
     end
 
@@ -40,6 +43,8 @@ module Oink
       if @instruments.include?(:memory)
         memory = Oink::Instrumentation::MemorySnapshot.memory
         @logger.info("Memory usage: #{memory} | PID: #{$$}")
+
+        log_memory_to_honeybadger(memory) if @memory_threshold && memory > @memory_threshold
       end
     end
 
@@ -66,5 +71,15 @@ module Oink
       ActiveRecord::Base.reset_instance_type_count
     end
 
+    def log_memory_to_honeybadger(memory)
+      response = Honeybadger.notify(
+        error_class: "Memory pig detected",
+        error_message: "This process is eating RAM for breakfast",
+        parameters: {
+          pid: $$,
+          memory: memory
+        }
+      )
+    end
   end
 end
