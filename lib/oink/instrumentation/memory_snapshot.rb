@@ -10,8 +10,6 @@ module Oink
       def self.memory_snapshot_class
         @@memory_snapshot_class ||= begin
           [WindowsMemorySnapshot,
-           StatmMemorySnapshot,
-           SmapsMemorySnapshot,
            ProcessStatusMemorySnapshot].find { |snapshot_class| snapshot_class.available? }
         end
 
@@ -85,11 +83,11 @@ module Oink
 
     class ProcessStatusMemorySnapshot
       def memory
-        SystemCall.execute("ps -o vsz= -p #{$$}").stdout.to_i
+        SystemCall.execute("ps -o rss= -p #{$$}").stdout.to_i
       end
 
       def self.available?
-        SystemCall.execute("ps -o vsz= -p #{$$}").success?
+        SystemCall.execute("ps -o rss= -p #{$$}").success?
       end
     end
 
